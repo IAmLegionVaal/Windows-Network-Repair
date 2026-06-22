@@ -1,0 +1,21 @@
+name: Validate Windows Tool
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if(-not(Test-Path README.md)){throw 'README.md is missing.'}
+          if(-not(Test-Path Run-OneClick.bat)){throw 'Run-OneClick.bat is missing.'}
+          $note='This was tested by me to be working. User experience may vary.'
+          if((Get-Content README.md -Raw) -notmatch [regex]::Escape($note)){throw 'Required testing note is missing.'}
+          $scripts=@(Get-ChildItem . -Filter *.ps1 -File -Recurse)
+          if($scripts.Count -eq 0){throw 'No PowerShell script was found.'}
+          $failed=$false
+          foreach($script in $scripts){$tokens=$null;$errors=$null;[void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName,[ref]$tokens,[ref]$errors);if($errors.Count){$failed=$true;$errors|ForEach-Object{Write-Error "$($script.FullName):$($_.Extent.StartLineNumber) $($_.Message)"}}else{Write-Host "[OK] $($script.FullName)"}}
+          if($failed){exit 1}

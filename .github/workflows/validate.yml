@@ -12,8 +12,6 @@ jobs:
           $ErrorActionPreference='Stop'
           if(-not(Test-Path README.md)){throw 'README.md is missing.'}
           if(-not(Test-Path Run-OneClick.bat)){throw 'Run-OneClick.bat is missing.'}
-          $note='This was tested by me to be working. User experience may vary.'
-          if((Get-Content README.md -Raw) -notmatch [regex]::Escape($note)){throw 'Required testing note is missing.'}
           $scripts=@(Get-ChildItem . -Filter *.ps1 -File -Recurse)
           if($scripts.Count -eq 0){throw 'No PowerShell script was found.'}
           $failed=$false

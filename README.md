@@ -1,37 +1,88 @@
-# Windows Network Repair
+# Windows Network Diagnostics and Repair
 
-Single-run PowerShell diagnostics and repair for Windows IP, DNS, DHCP, adapters, Winsock and TCP/IP.
+A PowerShell utility for Windows IP, DNS, DHCP, adapter, Winsock and TCP/IP diagnostics. Repair actions are opt-in and potentially disruptive adapter actions require exact adapter names.
 
-> **Testing note:** This was tested by me to be working. User experience may vary.
+## One-click behavior
 
-## One-click use
+`Run-OneClick.bat` runs **diagnostics only**. It does not request elevation, release DHCP leases, restart adapters or reset the network stack.
 
-1. Download and extract the repository.
-2. Double-click `Run-OneClick.bat`.
-3. Approve the Windows administrator prompt.
-4. The launcher runs DNS and DHCP refresh repair directly—there is no menu.
-5. Review the displayed exit code and logs in `C:\ProgramData\WindowsNetworkRepair\Logs`.
+Logs are written under:
 
-The one-click action does not restart adapters or perform the full Winsock/TCP-IP reset because those options can interrupt remote sessions and require a deliberate choice.
+```text
+C:\ProgramData\WindowsNetworkRepair\Logs
+```
 
-## Included
+## Usage
 
-`Repair-WindowsNetwork.ps1`
-
-## PowerShell usage
+Diagnostics only:
 
 ```powershell
 .\Repair-WindowsNetwork.ps1
-.\Repair-WindowsNetwork.ps1 -Repair
-.\Repair-WindowsNetwork.ps1 -RestartAdapters
-.\Repair-WindowsNetwork.ps1 -Repair -FullReset
-.\Repair-WindowsNetwork.ps1 -Repair -WhatIf
 ```
 
-The default run records adapter, IP, gateway, DNS, route, proxy and connectivity evidence. Repair refreshes DNS and DHCP. Optional switches restart adapters or reset Winsock and TCP/IP. A Windows restart is recommended after a full reset.
+Flush the DNS cache and register DNS records:
 
-Exit code `0` means success, `1` means a fatal error and `2` means the run completed with warnings.
+```powershell
+.\Repair-WindowsNetwork.ps1 -Repair
+```
 
-Network interruptions can occur during DHCP renewal, adapter restart or a full reset. Results vary by adapter, VPN, firewall, policy and Windows version.
+Renew DHCP on one explicitly selected adapter:
+
+```powershell
+.\Repair-WindowsNetwork.ps1 -RenewDhcp -AdapterName 'Ethernet'
+```
+
+Restart one explicitly selected adapter:
+
+```powershell
+.\Repair-WindowsNetwork.ps1 -RestartAdapters -AdapterName 'Ethernet'
+```
+
+Select multiple exact adapters:
+
+```powershell
+.\Repair-WindowsNetwork.ps1 `
+    -RestartAdapters `
+    -AdapterName 'Ethernet','Wi-Fi'
+```
+
+Perform a full Winsock and TCP/IP reset:
+
+```powershell
+.\Repair-WindowsNetwork.ps1 -Repair -FullReset
+```
+
+Preview repair actions:
+
+```powershell
+.\Repair-WindowsNetwork.ps1 -Repair -WhatIf
+.\Repair-WindowsNetwork.ps1 -RenewDhcp -AdapterName 'Ethernet' -WhatIf
+```
+
+## Safety controls
+
+- `-RenewDhcp` and `-RestartAdapters` require `-AdapterName`.
+- Adapter names are resolved exactly through `Get-NetAdapter`.
+- Disabled adapters are rejected.
+- DHCP renewal is skipped unless IPv4 DHCP is enabled and the adapter is up.
+- `-FullReset` requires `-Repair`.
+- Repair actions require an elevated PowerShell session.
+- The one-click launcher is deliberately non-destructive.
+
+DHCP renewal, adapter restart and a full network reset can interrupt VPN, RMM or remote desktop connectivity. Use console access or an approved maintenance window when operating remotely.
+
+## Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | Completed without recorded warnings |
+| `1` | Fatal validation or execution error |
+| `2` | Completed with one or more warnings |
+
+## Validation
+
+A Windows GitHub Actions workflow parses every PowerShell file with the native PowerShell parser and runs PSScriptAnalyzer with error-severity findings treated as failures.
+
+## License
 
 MIT License.

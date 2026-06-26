@@ -63,18 +63,35 @@ function Resolve-SelectedAdapters {
         throw 'Specify -AdapterName for DHCP renewal or adapter restart actions.'
     }
 
+    $availableAdapters = @(Get-NetAdapter -ErrorAction Stop)
     $resolved = New-Object System.Collections.Generic.List[object]
-    foreach ($name in $AdapterName) {
-        $matches = @(Get-NetAdapter -Name $name -ErrorAction Stop)
-        foreach ($adapter in $matches) {
-            if ($adapter.Status -eq 'Disabled') {
-                throw "Adapter '$($adapter.Name)' is disabled. Enable or select a different adapter."
-            }
 
-            $alreadyAdded = @($resolved | Where-Object { $_.ifIndex -eq $adapter.ifIndex }).Count -gt 0
-            if (-not $alreadyAdded) {
-                $resolved.Add($adapter)
-            }
+    foreach ($name in $AdapterName) {
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw 'Adapter names cannot be empty or whitespace.'
+        }
+
+        # Deliberately use equality rather than Get-NetAdapter -Name because
+        # that parameter accepts wildcard patterns. Mutating actions must only
+        # operate on adapters whose displayed name exactly matches user input.
+        $matches = @($availableAdapters | Where-Object { $_.Name -eq $name })
+
+        if ($matches.Count -eq 0) {
+            throw "Adapter '$name' was not found. Specify the exact adapter name returned by Get-NetAdapter."
+        }
+
+        if ($matches.Count -gt 1) {
+            throw "Adapter name '$name' resolved to multiple interfaces. Use a unique exact adapter name."
+        }
+
+        $adapter = $matches[0]
+        if ($adapter.Status -eq 'Disabled') {
+            throw "Adapter '$($adapter.Name)' is disabled. Enable or select a different adapter."
+        }
+
+        $alreadyAdded = @($resolved | Where-Object { $_.ifIndex -eq $adapter.ifIndex }).Count -gt 0
+        if (-not $alreadyAdded) {
+            $resolved.Add($adapter)
         }
     }
 
